@@ -191,8 +191,8 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
       @tempfile = File.open(filename, "a")
       
       #  header row processing
-      if @headerrow.eql? "" 
-        @tempfile.syswrite(@headerrow)
+      if @header_row != "" 
+        @tempfile.syswrite(@header_row + "\n")
       end
     end
   end
