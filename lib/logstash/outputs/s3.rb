@@ -64,7 +64,6 @@ require "fileutils"
 class LogStash::Outputs::S3 < LogStash::Outputs::Base
   include LogStash::PluginMixins::AwsConfig
 
-  TEMPFILE_EXTENSION = "txt"
   S3_INVALID_CHARACTERS = /[\^`><]/
 
   config_name "s3"
@@ -127,6 +126,9 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
   # Recommend to use wtih this a filter that produces an explicit set of fields no matter the input
   # event
   config :header_row, :validate => :string, :default => ""
+
+  # file extension to use for generated files
+  config :file_extension, :validate => :string, :default => "txt"
 
   # Exposed attributes for testing purpose.
   attr_accessor :tempfile
@@ -258,7 +260,7 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
   def restore_from_crashes
     @logger.debug("S3: is attempting to verify previous crashes...")
 
-    Dir[File.join(@temporary_directory, "*.#{TEMPFILE_EXTENSION}")].each do |file|
+    Dir[File.join(@temporary_directory, "*.#{@file_extension}")].each do |file|
       name_file = File.basename(file)
       @logger.warn("S3: have found temporary file the upload process crashed, uploading file to S3.", :filename => name_file)
       move_file_to_bucket_async(file)
@@ -293,9 +295,9 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
     filename = "ls.s3.#{Socket.gethostname}.#{current_time.strftime("%Y-%m-%dT%H.%M")}"
 
     if @tags.size > 0
-      return "#{filename}.tag_#{@tags.join('.')}.part#{page_counter}.#{TEMPFILE_EXTENSION}"
+      return "#{filename}.tag_#{@tags.join('.')}.part#{page_counter}.#{@file_extension}"
     else
-      return "#{filename}.part#{page_counter}.#{TEMPFILE_EXTENSION}"
+      return "#{filename}.part#{page_counter}.#{@file_extension}"
     end
   end
 
