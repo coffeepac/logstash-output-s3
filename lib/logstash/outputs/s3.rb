@@ -191,8 +191,12 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
       @tempfile = File.open(filename, "a")
       
       #  header row processing
-      if @header_row != "" 
-        @tempfile.syswrite(@header_row + "\n")
+      if @header_row != "" and @tempfile.size == 0
+        cnt = @tempfile.syswrite(@header_row + "\n")
+        if cnt != (@header_row.length + 1)
+          raise LogStash::Error, "Failed to write all of header.  only wrote #{cnt} of #{@header_row.length} bytes"
+        end
+        @tempfile.flush()
       end
     end
   end

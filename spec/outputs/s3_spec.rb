@@ -90,6 +90,80 @@ describe LogStash::Outputs::S3 do
       expect(s3.get_temporary_filename).to eq("ls.s3.logstash.local.2015-01-01T00.00.part0.txt")
     end
   end
+  
+  describe "#header_row_written" do
+    before do
+      allow(Time).to receive(:now) { Time.new('2015-10-09-09:00') }
+    end
+
+    it "should add a header row to an empty file" do
+      config = minimal_settings.merge({ "header_row" => "This,Is,Not,The,Sound,Of,The,Train",
+                                        "temporary_directory" => "/tmp/logstash/" })
+      s3 = LogStash::Outputs::S3.new(config)
+      filename = File.join("/tmp/logstash", s3.get_temporary_filename(0))
+      begin
+        File.delete(filename)
+      rescue Errno::ENOENT
+        # means the file doesn't exist, this is fine
+      end
+
+      s3.register
+      header_file = open(filename, "r")
+      expect(header_file.size).to eq(35)
+      contents = []
+      header_file.each do |line|
+        contents.push(line)
+      end
+      expect(contents[0]).to eq("This,Is,Not,The,Sound,Of,The,Train\n")
+    end
+  end
+
+  describe "#header_row_not_written" do
+    before do
+      allow(Socket).to receive(:gethostname) { "logstash.local" }
+      allow(Time).to receive(:now) { Time.new('2015-10-09-09:00') }
+    end
+
+    it "should not write a header row because the config isn't set" do
+      config = minimal_settings.merge({ "temporary_directory" => "/tmp/logstash/" })
+      s3 = LogStash::Outputs::S3.new(config)
+      filename = File.join("/tmp/logstash", s3.get_temporary_filename(0))
+      begin
+        File.delete(filename)
+      rescue Errno::ENOENT
+        # means the file doesn't exist, this is fine
+      end
+
+      s3.register
+      header_file = open(File.join("/tmp/logstash", s3.get_temporary_filename(0)), "r")
+      expect(header_file.size).to eq(0)
+    end
+
+    it "should not write a header row to a non-empty file" do
+      config = minimal_settings.merge({ "header_row" => "This,Is,Not,The,Sound,Of,The,Train",
+                                        "temporary_directory" => "/tmp/logstash/" })
+      s3 = LogStash::Outputs::S3.new(config)
+      filename = File.join("/tmp/logstash", s3.get_temporary_filename(0))
+      begin
+        File.delete(filename)
+      rescue Errno::ENOENT
+        # means the file doesn't exist, this is fine
+      end
+
+      header_file = open(File.join("/tmp/logstash", s3.get_temporary_filename(0)), "w")
+      header_file.syswrite("That's some data")
+      header_file.close()
+
+      s3.register
+      header_file = open(File.join("/tmp/logstash", s3.get_temporary_filename(0)), "r")
+      expect(header_file.size).to eq(16)
+      contents = []
+      header_file.each do |line|
+        contents.push(line)
+      end
+      expect(contents[0]).to eq("That's some data")
+    end
+  end
 
   describe "#write_on_bucket" do
     let!(:fake_data) { Stud::Temporary.file }
