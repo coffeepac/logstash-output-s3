@@ -89,6 +89,14 @@ describe LogStash::Outputs::S3 do
       s3 = LogStash::Outputs::S3.new(minimal_settings.merge({ "temporary_directory" => "/tmp/logstash" }))
       expect(s3.get_temporary_filename).to eq("ls.s3.logstash.local.2015-01-01T00.00.part0.txt")
     end
+
+    it "should allow overriding the default filename pattern" do
+      config = minimal_settings.merge({"filename_template" => "<%=Socket.gethostname%>-<%=Time.now.strftime(\"%Y-%m-%dT%H-%M\")%>"})
+      s3 = LogStash::Outputs::S3.new(config)
+      expect(s3.get_temporary_filename).to eq("logstash.local-2015-01-01T00-00.part0.txt")
+    end
+
+	
   end
   
   describe "#header_row_written" do

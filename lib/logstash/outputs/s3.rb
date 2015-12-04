@@ -8,6 +8,7 @@ require "socket" # for Socket.gethostname
 require "thread"
 require "tmpdir"
 require "fileutils"
+require "erb"
 
 
 # INFORMATION:
@@ -18,7 +19,7 @@ require "fileutils"
 #
 #
 # This plugin outputs temporary files to "/opt/logstash/S3_temp/". If you want, you can change the path at the start of register method.
-# These files have a special name, for example:
+# These files have a special default name, for example:
 #
 # ls.s3.ip-10-228-27-95.2013-04-18T10.00.tag_hello.part0.txt
 #
@@ -31,6 +32,10 @@ require "fileutils"
 #           When a file is full it will be pushed to a bucket and will be deleted from the temporary directory.
 #           If a file is empty is not pushed, it is not deleted.
 #
+# 
+# You can override this name by setting the config value 'filename'
+# <define syntax here after you figure out what works>
+# 
 # This plugin have a system to restore the previous temporary files if something crash.
 #
 ##[Note] :
@@ -127,6 +132,8 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
   # Recommend to use wtih this a filter that produces an explicit set of fields no matter the input
   # event
   config :header_row, :validate => :string, :default => ""
+
+  config :filename_template, :validate => :string, :default => "ls.s3.<%=Socket.gethostname %>.<%=Time.now.strftime(\"%Y-%m-%dT%H.%M\") %>"
 
   # Exposed attributes for testing purpose.
   attr_accessor :tempfile
@@ -294,7 +301,9 @@ class LogStash::Outputs::S3 < LogStash::Outputs::Base
   public
   def get_temporary_filename(page_counter = 0)
     current_time = Time.now
-    filename = "ls.s3.#{Socket.gethostname}.#{current_time.strftime("%Y-%m-%dT%H.%M")}"
+#    filename = "ls.s3.#{Socket.gethostname}.#{current_time.strftime("%Y-%m-%dT%H.%M")}"
+    filename_renderer = ERB.new(@filename_template)
+    filename = filename_renderer.result()
 
     if @tags.size > 0
       return "#{filename}.tag_#{@tags.join('.')}.part#{page_counter}.#{TEMPFILE_EXTENSION}"
